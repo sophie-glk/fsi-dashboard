@@ -479,12 +479,18 @@ class MainWindow(QMainWindow):
         #resize correctly on first run
         self.resize_timer.start()
 
+    def set_status(self, label, text, max_len=70):
+        """Set label text without letting long text change the layout size."""
+        #label.setToolTip(text)  # full text still available on hover
+        label.setText(text if len(text) <= max_len else text[:max_len - 1] + "…")
 
     def show_menu_error(self, message):
         #Reset these keys so we can try again    
         self.last_date = None
         self.last_mensa_key = None
-        self.menu_status.setText(f"Speiseplan-Fehler: {message}")
+        self.dish_count = 0 # no dishes
+        self.set_status(self.menu_status, f"Speiseplan-Fehler: {message}")
+        self.resize_timer.start()
 
     def refreshBus(self):
         # Never start a second request while one is running.
@@ -528,7 +534,7 @@ class MainWindow(QMainWindow):
 
 
     def show_error(self, message):
-        self.status.setText(f"Fehler: {message}")
+        self.set_status(self.status, f"Fehler: {message}")
 
 app = QApplication(sys.argv)
 app.setApplicationName("dashboard")
