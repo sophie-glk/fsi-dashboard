@@ -110,22 +110,23 @@ class DishCard(QFrame):
 
         details = QVBoxLayout()
         #details.setSpacing(3)
-
+        kind_layout = QHBoxLayout()
         if dish.get("type"):
             kind = QLabel(dish["type"])
             kind.setObjectName("dishType")
-            details.addWidget(kind)
+            kind_layout.addWidget(kind)
         #consistent layou
         else: 
-            details.addWidget(QLabel(""))
-
-        price = QLabel(dish.get("price", ""))
-        price.setObjectName("dishPrice")
-        details.addWidget(price)
+            kind_layout.addWidget(QLabel(""))
         if dish.get("allergens"):
             allergens_label = QLabel(", ".join(dish["allergens"]))
             allergens_label.setObjectName("dishAllergens")
-            details.addWidget(allergens_label)
+            kind_layout.addWidget(allergens_label)
+        details.addLayout(kind_layout)
+        price = QLabel(dish.get("price", ""))
+        price.setObjectName("dishPrice")
+        details.addWidget(price)
+
         details.addStretch()
         content.addLayout(details, 1)
 
