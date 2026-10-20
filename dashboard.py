@@ -148,7 +148,7 @@ class DishCard(QFrame):
     def _calculate_image_height(self):
             self.img_height = 64
             if self.dish_count != 0:
-                self.img_height = int(((self.window().height())/self.dish_count * 0.8))
+                self.img_height = int(((self.window().height())/self.dish_count * 0.75))
             self.picture.setFixedSize(int(self.img_height*3/2), self.img_height)
 
     def rescale_image(self):
