@@ -83,6 +83,10 @@ class DishCard(QFrame):
                 font-size: 20px;
                 color: #18794e;
             }
+            QLabel#dishAllergens {
+                font-size: 12px;
+                color: palette(placeholder-text);
+            }
         """)
 
         layout = QVBoxLayout(self)
@@ -118,6 +122,10 @@ class DishCard(QFrame):
         price = QLabel(dish.get("price", ""))
         price.setObjectName("dishPrice")
         details.addWidget(price)
+        if dish.get("allergens"):
+            allergens_label = QLabel(", ".join(dish["allergens"]))
+            allergens_label.setObjectName("dishAllergens")
+            details.addWidget(allergens_label)
         details.addStretch()
         content.addLayout(details, 1)
 

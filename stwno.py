@@ -37,9 +37,15 @@ def get_menu(date, location = "UNI-R"):
     parsed_foods = {"mains": [], "sides": [], "deserts": [], "soups": []}
     for title,food_rows in foods.items():
         for food in food_rows:
-            name = food.find(class_="cell1").get_text(" ", strip=True)
-            if not name:
+            display_name = food.find(class_="cell1").get_text(" ", strip=True)
+            if not display_name:
                 continue
+            # remove allergens in brackets from name
+            split_string =  display_name.split("(")
+            name = split_string[0].strip() 
+            allergens = []
+            if len(split_string) > 1:
+                allergens = split_string[1].rstrip(")").split(",")
             images = food.find_all("img")
             image = ""
             for img in images:
@@ -57,7 +63,7 @@ def get_menu(date, location = "UNI-R"):
                     food_type = "Vegan"
                 elif "vegetarisch" in text:
                     food_type = "Vegetarisch" 
-            data = {"name": name, "price": price, "type": food_type, "image": image}
+            data = {"name": name, "allergens": allergens, "price": price, "type": food_type, "image": image}
             key = "mains"
             if title == "Suppen":
                 key = "soups"
