@@ -72,19 +72,19 @@ class DishCard(QFrame):
                 border: none;
             }
             QLabel#dishName {
-                font-size: 22px;
+                font-size: 20px;
                 font-weight: 600;
             }
             QLabel#dishPrice {
-                font-size: 20px;
+                font-size: 18px;
                 font-weight: 500
             }
             QLabel#dishType {
-                font-size: 20px;
+                font-size: 18px;
                 color: #18794e;
             }
             QLabel#dishAllergens {
-                font-size: 12px;
+                font-size: 12x;
                 color: palette(placeholder-text);
             }
         """)
