@@ -1,7 +1,12 @@
 
 #!/usr/bin/env python3
 
+import fcntl
+import io
+import socket
+import struct
 import sys
+import qrcode
 from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 
@@ -25,8 +30,10 @@ MENSA_CLOSING_TIME = time(14,15) # 14:15
 ABENDMENSA_OPENING_DAYS = range(0,4)# Monday = 0 to Thursday = 3
 ABENDMENSA_CLOSING_TIME = time(19,0)# 19:00
 BUS_STOP_ID = "de:09362:14080" # Universität
-BUS_AMOUNT = 11 # Max future departures to show
-
+BUS_AMOUNT = 10 # Max future departures to show
+LAN_INTERFACE = "enp39s0"
+QR_UPDATE_TIME = 1*60*1000 # 1 minute
+QR_CODE_SIZE = 150
 
 class BusFetchWorker(QThread):
     result_ready = Signal(object)
@@ -37,6 +44,24 @@ class BusFetchWorker(QThread):
             self.result_ready.emit(get_departures(BUS_STOP_ID, BUS_AMOUNT))
         except Exception as exc:
             self.error_occurred.emit(str(exc))
+
+class QRFetchWorker(QThread):
+    result_ready = Signal(object)
+    error_occurred = Signal(str)
+
+    def run(self):
+        try:
+            self.result_ready.emit(get_ip_address(LAN_INTERFACE))
+        except Exception as exc:
+            self.error_occurred.emit(str(exc))
+
+def get_ip_address(ifname):
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        return socket.inet_ntoa(fcntl.ioctl(
+            s.fileno(),
+            0x8915,  # SIOCGIFADDR
+            struct.pack('256s', ifname[:15].encode())
+        )[20:24])
 
 class MenuFetchWorker(QThread):
     result_ready = Signal(object, str, str)
@@ -175,7 +200,54 @@ class DishCard(QFrame):
                 )
         reply.deleteLater()
 
+class QRCodeCard(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.link = ""
+        layout = QVBoxLayout(self)
+        self.setObjectName("QRCodeCard")
+        self.setStyleSheet("""
+                QFrame#QRCodeCard {
+                    background: palette(base);
+                    border: 1px solid palette(mid);
+                    border-radius: 9px;
+                }
+                QLabel {
+                    border: none;
+                }
+                QLabel#title {
+                    font-size: 24px;
+                    font-weight: 700;
+                }
+                QLabel#text {
+                    font-size: 22px;
+                    font-weight: 500;
+                }
+                QLabel#qrcode {
+                    font-size: 22px;
+                    font-weight: 500;
+                }
+                QLabel#error {
+                    font-size: 14px;
+                    font-weight: 300;
+                }
 
+            """)
+        title = "Strichliste (TEST ONLY) - EDUROAM NEEDED"
+        self.titleLabel  = QLabel(title)
+        self.errorLabel = QLabel("")
+        self.errorLabel.setObjectName("error")
+        self.titleLabel.setObjectName("title")
+        self.textLabel = QLabel("")
+        self.textLabel.setObjectName("text")
+        self.codeLabel = QLabel("QR-Code")
+        self.codeLabel.setObjectName("qrcode")
+        self.codeLabel.setFixedHeight(QR_CODE_SIZE)
+        layout.addWidget(self.titleLabel)
+        qr_layout = QHBoxLayout()
+        qr_layout.addWidget(self.codeLabel)
+        qr_layout.addWidget(self.textLabel)
+        layout.addLayout(qr_layout)
 
 class DepartureCard(QFrame):
     def __init__(self, result, parent=None):
@@ -281,16 +353,19 @@ class MainWindow(QMainWindow):
 
         self.Busworker = None
         self.menu_worker = None
+        self.QRWorker = None
+
         self.last_date = None 
         self.last_mensa_key = None
 
         central = QWidget()
         self.setCentralWidget(central)
         layout = QHBoxLayout(central)
-
+        layout.setContentsMargins(0, 0, 0, 0) 
+        layout.setSpacing(0)   
         # Left side: departure board
         left = QVBoxLayout()
-        left.setSpacing(6)
+
         self.bus_heading =  QLabel("Busse")
         self.bus_heading.setStyleSheet("font-size: 26px; font-weight: 700;")
         font = self.bus_heading.font()
@@ -309,6 +384,15 @@ class MainWindow(QMainWindow):
         self.departure_list.setSpacing(7)
         left.addLayout(self.departure_list)
         left.addStretch()
+        self.qrCodeCard = QRCodeCard()
+       
+        #seperator line
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Plain)
+        layout.addWidget(separator)
+        left.addWidget(separator)
+        left.addWidget(self.qrCodeCard)
 
         layout.addLayout(left, 2)
 
@@ -324,7 +408,6 @@ class MainWindow(QMainWindow):
         
         # Mensa: no scroll area
         right = QVBoxLayout()
-        right.setSpacing(6)
 
         self.menu_title = QLabel("Mensa")
         self.menu_title.setStyleSheet("font-size: 26px; font-weight: 700;")
@@ -373,15 +456,22 @@ class MainWindow(QMainWindow):
         self.menu_force_timer = QTimer(self)
         self.menu_force_timer.timeout.connect(lambda: self.refreshMenu(force=True))
         self.menu_force_timer.start(MENU_REFRESH_FORCE_MS)
+
+        self.qr_timer = QTimer(self)
+        self.qr_timer.timeout.connect(self.refreshQRCode)
+        self.qr_timer.start(QR_UPDATE_TIME)
+
         self.update_bus_heading()
         self.refreshMenu()
         self.refreshBus()
+        self.refreshQRCode()
 
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.resize_timer.start()
 
+        
     def refreshMenu(self, force=False):
         if self.menu_worker is not None:
                     return # only one instance
@@ -500,6 +590,41 @@ class MainWindow(QMainWindow):
         self.dish_count = 0 # no dishes
         self.set_status(self.menu_status, f"Speiseplan-Fehler: {message}")
         self.resize_timer.start()
+
+
+    def refreshQRCode(self):
+        if self.QRWorker is not None:
+            return
+        worker = QRFetchWorker(self)
+        worker.result_ready.connect(self.update_QRCode)
+        worker.error_occurred.connect(lambda m: self.set_status(self.qrCodeCard.errorLabel, m))
+        worker.finished.connect(self._qr_worker_done)
+        worker.finished.connect(worker.deleteLater)
+        self.QRWorker = worker
+        worker.start()
+
+    def _qr_worker_done(self):
+            self.QRWorker = None
+
+    def update_QRCode(self, ip_address):
+        card = self.qrCodeCard
+        link = f"http://{ip_address}"
+        if card.link == link:
+            #nothing changed
+            return
+        card.link = link
+        buffer = io.BytesIO()
+        qrcode.make(card.link).save(buffer, "PNG")
+        pixmap = QPixmap()
+        pixmap.loadFromData(buffer.getvalue(), "PNG")
+        card.textLabel.setText(card.link)
+        card.codeLabel.setPixmap(
+                            pixmap.scaled(
+                                card.codeLabel.size(),
+                                Qt.AspectRatioMode.KeepAspectRatio,
+                                Qt.TransformationMode.SmoothTransformation,
+                            )
+                        )
 
     def refreshBus(self):
         # Never start a second request while one is running.
