@@ -10,7 +10,7 @@ from PySide6.QtCore import QThread, QTimer, Signal, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout
 
-LAN_INTERFACE = "enp39s0"
+LAN_INTERFACE = "eth0"
 QR_UPDATE_TIME = 1 * 60 * 1000  # 1 minute
 QR_CODE_SIZE = 150
 
