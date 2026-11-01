@@ -50,7 +50,8 @@ class DepartureCard(QFrame):
             QLabel#time {
                 font-size: 24px;
                 font-weight: 700;
-            }
+                font-feature-settings: "tnum"; 
+                                    }
             QLabel#line {
                 background: #dceafe;
                 color: #174ea6;
@@ -58,6 +59,8 @@ class DepartureCard(QFrame):
                 padding: 4px 8px;
                 font-size: 20px;
                 font-weight: 700;
+                font-feature-settings: "tnum";
+                
             }
             QLabel#destination {
                 font-size: 20px;
@@ -88,8 +91,9 @@ class DepartureCard(QFrame):
         time_col = QVBoxLayout()
         time_label = QLabel(time_text)
         time_label.setObjectName("time")
+        time_label.setMinimumWidth(80)
         time_col.addWidget(time_label)
-
+       
         if delay > 0:
             delay_label = QLabel(f"+{delay} min")
             delay_label.setStyleSheet(
@@ -107,6 +111,7 @@ class DepartureCard(QFrame):
         line.setObjectName("line")
         line.setAlignment(Qt.AlignmentFlag.AlignCenter)
         line.setMinimumWidth(42)
+
         layout.addWidget(line)
 
         destination_col = QVBoxLayout()
