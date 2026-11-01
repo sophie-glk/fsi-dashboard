@@ -1,6 +1,7 @@
 """Bus departures: data fetching, departure cards and the complete bus panel."""
 
 from datetime import datetime
+import time
 from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import QThread, QTimer, Signal, Qt
@@ -9,6 +10,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from rvv import get_departures, parse_time
 
+REFRESH_AFTER_RESIZE_MS = 2000  # wait for main thread to finish initializing the window before refreshing, otherwise the window height is too small and not enough departures are shown
 TIMEZONE = ZoneInfo("Europe/Berlin")
 BUS_REFRESH_MS = 60 * 1000  # 1 Minute
 BUS_STOP_ID = "de:09362:14080"  # Universität
@@ -127,6 +129,8 @@ class BusPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.bus_worker = None
+        self.departure_count = 0
+        self.last_update = 0
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -160,11 +164,18 @@ class BusPanel(QWidget):
         self.bus_heading_timer.start(1000)
 
         self.update_heading()
-        self.refresh()
+        #wait for main thread to finish initializing the window before refreshing, otherwise the window height is too small and not enough departures are shown
+        QTimer.singleShot(REFRESH_AFTER_RESIZE_MS, self.refresh)
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        QTimer.singleShot(REFRESH_AFTER_RESIZE_MS, self.refresh) # refresh the departures when the window is resized, to show more or less departures
+        
     def refresh(self):
         # Never start a second request while one is running.
         if self.bus_worker is not None:  # a request is still in flight
+            return
+        if time.time() - self.last_update < 10:  # don't refresh more than once every 10 seconds
             return
         self.status.setText("Aktualisiere ...")
         worker = BusFetchWorker(self.window().height(), self)
@@ -176,6 +187,11 @@ class BusPanel(QWidget):
         worker.start()
 
     def _worker_done(self):
+        self.last_update = time.time()
+        self.status.setText(
+                    f"{self.departure_count} Abfahrten insgesamt · "
+                    f"Aktualisiert {datetime.now(TIMEZONE):%H:%M:%S}"
+                )
         self.bus_worker = None
 
     def update_heading(self):
@@ -193,11 +209,7 @@ class BusPanel(QWidget):
 
         if not results:
             self.departure_list.addWidget(QLabel("Keine Abfahrten gefunden"))
-
-        self.status.setText(
-            f"{len(results)} Abfahrten insgesamt · "
-            f"Aktualisiert {datetime.now(TIMEZONE):%H:%M:%S}"
-        )
+        self.departure_count = len(results)
 
     def show_error(self, message):
         text = f"Fehler: {message}"
