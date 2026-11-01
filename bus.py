@@ -12,16 +12,21 @@ from rvv import get_departures, parse_time
 TIMEZONE = ZoneInfo("Europe/Berlin")
 BUS_REFRESH_MS = 60 * 1000  # 1 Minute
 BUS_STOP_ID = "de:09362:14080"  # Universität
-BUS_AMOUNT = 10  # Max future departures to show
+MAX_BUS_AMOUNT = 10  # Max future departures to show
 
 
 class BusFetchWorker(QThread):
+    def __init__(self, window_size, parent=None):
+        super().__init__(parent)
+        self.window_size = window_size
+
     result_ready = Signal(object)
     error_occurred = Signal(str)
 
     def run(self):
         try:
-            self.result_ready.emit(get_departures(BUS_STOP_ID, BUS_AMOUNT))
+            amount = min(MAX_BUS_AMOUNT, int(self.window_size/65))
+            self.result_ready.emit(get_departures(BUS_STOP_ID, amount))
         except Exception as exc:
             self.error_occurred.emit(str(exc))
 
@@ -121,7 +126,6 @@ class BusPanel(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-
         self.bus_worker = None
 
         layout = QVBoxLayout(self)
@@ -163,7 +167,7 @@ class BusPanel(QWidget):
         if self.bus_worker is not None:  # a request is still in flight
             return
         self.status.setText("Aktualisiere ...")
-        worker = BusFetchWorker(self)
+        worker = BusFetchWorker(self.window().height(), self)
         worker.result_ready.connect(self.update_departures)
         worker.error_occurred.connect(self.show_error)
         worker.finished.connect(self._worker_done)
