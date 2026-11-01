@@ -17,11 +17,14 @@ QR_CODE_SIZE = 150
 
 def get_ip_address(ifname):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        return socket.inet_ntoa(fcntl.ioctl(
+        adress = socket.inet_ntoa(fcntl.ioctl(
             s.fileno(),
             0x8915,  # SIOCGIFADDR
             struct.pack('256s', ifname[:15].encode())
         )[20:24])
+        if not adress:
+            raise Exception(f"Could not get IP address for interface {ifname}")
+        return adress
 
 
 class QRFetchWorker(QThread):
@@ -81,6 +84,7 @@ class QRCodeCard(QFrame):
         self.codeLabel.setObjectName("qrcode")
         self.codeLabel.setFixedHeight(QR_CODE_SIZE)
         layout.addWidget(self.titleLabel)
+        layout.addWidget(self.errorLabel)
         qr_layout = QHBoxLayout()
         qr_layout.addWidget(self.codeLabel)
         qr_layout.addWidget(self.textLabel)
@@ -124,6 +128,7 @@ class QRCodeCard(QFrame):
                 Qt.TransformationMode.SmoothTransformation,
             )
         )
+        self.errorLabel.deleteLater() #error label no longer needed, code ran successfully
 
     def show_error(self, message, max_len=70):
         # keep long text from changing the layout size
