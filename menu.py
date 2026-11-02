@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
 from PySide6.QtNetwork import (
     QNetworkAccessManager, QNetworkDiskCache, QNetworkRequest, QNetworkReply
 )
-from torch import layout
 
 from stwno import get_menu
 
