@@ -10,9 +10,9 @@ from PySide6.QtCore import QThread, QTimer, Signal, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout
 
-LAN_INTERFACE = "eth0"
+LAN_INTERFACE = "wlp0s20f3"
 QR_UPDATE_TIME = 1 * 60 * 1000  # 1 minute
-QR_CODE_SIZE = 150
+QR_CODE_SIZE = 0.07 # in percent of height
 
 
 def get_ip_address(ifname):
@@ -43,7 +43,8 @@ class QRCodeCard(QFrame):
         super().__init__(parent)
         self.link = ""
         self.qr_worker = None
-
+        self.ogPixmap = None
+        
         layout = QVBoxLayout(self)
         self.setObjectName("QRCodeCard")
         self.setStyleSheet("""
@@ -82,19 +83,35 @@ class QRCodeCard(QFrame):
         self.textLabel.setObjectName("text")
         self.codeLabel = QLabel("QR-Code")
         self.codeLabel.setObjectName("qrcode")
-        self.codeLabel.setFixedHeight(QR_CODE_SIZE)
         layout.addWidget(self.titleLabel)
         layout.addWidget(self.errorLabel)
         qr_layout = QHBoxLayout()
         qr_layout.addWidget(self.codeLabel)
         qr_layout.addWidget(self.textLabel)
         layout.addLayout(qr_layout)
-
+        self.scale_qr_code()
         self.qr_timer = QTimer(self)
         self.qr_timer.timeout.connect(self.refresh)
         self.qr_timer.start(QR_UPDATE_TIME)
 
         self.refresh()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.scale_qr_code()
+
+    def scale_qr_code(self):
+        height = self.window().height()*QR_CODE_SIZE
+        self.codeLabel.setFixedHeight(height)
+        if self.ogPixmap is not None:
+            self.codeLabel.setPixmap(
+                self.ogPixmap.scaled(
+                    self.codeLabel.size(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
+
 
     def refresh(self):
         if self.qr_worker is not None:
@@ -119,6 +136,7 @@ class QRCodeCard(QFrame):
         buffer = io.BytesIO()
         qrcode.make(self.link).save(buffer, "PNG")
         pixmap = QPixmap()
+        self.ogPixmap = pixmap
         pixmap.loadFromData(buffer.getvalue(), "PNG")
         self.textLabel.setText(self.link)
         self.codeLabel.setPixmap(
