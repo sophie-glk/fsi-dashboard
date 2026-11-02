@@ -28,9 +28,9 @@ class MainWindow(QMainWindow):
 
         # Left side: departure board (bus.py) + QR card (qr.py)
         left = QVBoxLayout()
+        left.addStretch(1)
         self.bus_panel = BusPanel()
         left.addWidget(self.bus_panel)
-        left.addStretch()
         self.qrCodeCard = QRCodeCard()
 
         #seperator line

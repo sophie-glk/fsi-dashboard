@@ -133,7 +133,7 @@ class DishCard(QFrame):
     def _calculate_image_height(self):
         self.img_height = 64
         if self.dish_count != 0:
-            self.img_height = int((self.window().height() / self.dish_count * 0.8 ))
+            self.img_height = int((self.window().height() / self.dish_count * 0.75 ))
         self.picture.setFixedSize(int(self.img_height * 3 / 2), self.img_height)
 
     def rescale_image(self):
@@ -178,7 +178,6 @@ class MenuPanel(QWidget):
         self.resize_timer.timeout.connect(self.resize_menu)
 
         right = QVBoxLayout(self)
-
         self.menu_title = QLabel("Mensa")
         self.menu_title.setStyleSheet("font-size: 26px; font-weight: 700;")
         self.menu_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -190,7 +189,7 @@ class MenuPanel(QWidget):
         )
         self.menu_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         right.addWidget(self.menu_status)
-
+        right.addStretch(1)  # push everything up
         # Mensa: no scroll area
         self.menu_content = QWidget()
         self.menu_content.setSizePolicy(
@@ -202,8 +201,8 @@ class MenuPanel(QWidget):
         self.menu_grid.setVerticalSpacing(3)
         self.menu_grid.setColumnStretch(0, 1)
         self.menu_grid.setColumnStretch(1, 1)
-        right.addWidget(self.menu_content, 1)
-
+        right.addWidget(self.menu_content, 2)
+        right.addStretch(2)
         self.image_network = QNetworkAccessManager(self)
         cache = QNetworkDiskCache(self)
         cache_dir = QStandardPaths.writableLocation(
@@ -316,7 +315,7 @@ class MenuPanel(QWidget):
                 "font-size: 25px; font-weight: 700; padding-top: 3px;"
             )
             self.menu_grid.addWidget(heading, row, 0, 1, 2)
-            self.menu_grid.setRowStretch(row, 2) # increase spacing between sections
+            self.menu_grid.setRowStretch(row, 1) # increase spacing between sections
             row += 1
 
             for i in range(0, len(dishes), 2):
@@ -325,7 +324,6 @@ class MenuPanel(QWidget):
                         DishCard(dish, self.image_network, count), row, col
                     )
                 row += 1
-        self.menu_grid.setRowStretch(row, 1)  # push everything up
         self.menu_status.setText(
             f"{count} Gerichte · "
             f"Aktualisiert {datetime.now(TIMEZONE):%H:%M:%S}"

@@ -1,12 +1,13 @@
 """Bus departures: data fetching, departure cards and the complete bus panel."""
 
 from datetime import datetime
+from multiprocessing import dummy
 import time
 from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import QThread, QTimer, Signal, Qt
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from rvv import get_departures, parse_time
 
@@ -18,17 +19,17 @@ MAX_BUS_AMOUNT = 10  # Max future departures to show
 
 
 class BusFetchWorker(QThread):
-    def __init__(self, window_size, parent=None):
+    def __init__(self, amount, parent=None):
         super().__init__(parent)
-        self.window_size = window_size
+        self.amount = amount
 
     result_ready = Signal(object)
     error_occurred = Signal(str)
 
     def run(self):
         try:
-            amount = min(MAX_BUS_AMOUNT, int(self.window_size/65))
-            self.result_ready.emit(get_departures(BUS_STOP_ID, amount))
+            #calculate how many departures can be shown in the available space
+            self.result_ready.emit(get_departures(BUS_STOP_ID, self.amount))
         except Exception as exc:
             self.error_occurred.emit(str(exc))
 
@@ -136,27 +137,29 @@ class BusPanel(QWidget):
         self.last_update = 0
 
         layout = QVBoxLayout(self)
-        
+
         self.bus_heading = QLabel("Busse")
         self.bus_heading.setStyleSheet("font-size: 26px; font-weight: 700;")
         font = self.bus_heading.font()
+        self.bus_heading.setAlignment(Qt.AlignmentFlag.AlignCenter)   # as in your original
+        self.bus_heading.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         font.setStyleStrategy(QFont.StyleStrategy.PreferDefault)
         font.setFeature(QFont.Tag("tnum"), 1)  # tabular numbers, all digits have the same width, needed for the clock
         self.bus_heading.setFont(font)
-        self.bus_heading.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.bus_heading.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
         layout.addWidget(self.bus_heading)
-
         self.status = QLabel("Lade Abfahrten …")
         self.status.setStyleSheet(
             "color: palette(placeholder-text); font-size: 12px;"
         )
         self.status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.status)
-
+        layout.addStretch(1) 
         self.departure_list = QVBoxLayout()
         self.departure_list.setSpacing(7)
         layout.addLayout(self.departure_list)
-
+     # push everything up
+        
         self.bus_timer = QTimer(self)
         self.bus_timer.timeout.connect(self.refresh)
         self.bus_timer.start(BUS_REFRESH_MS)
@@ -180,14 +183,22 @@ class BusPanel(QWidget):
         if time.time() - self.last_update < 10:  # don't refresh more than once every 10 seconds
             return
         self.status.setText("Aktualisiere ...")
-        worker = BusFetchWorker(self.window().height(), self)
+        worker = BusFetchWorker(self.calculate_card_amount(), self)
         worker.result_ready.connect(self.update_departures)
         worker.error_occurred.connect(self.show_error)
         worker.finished.connect(self._worker_done)
         worker.finished.connect(worker.deleteLater)
         self.bus_worker = worker
         worker.start()
-
+        
+    def calculate_card_amount(self):
+        #calculate how many departures can be shown in the available space
+            available = self.window().height() - self.bus_heading.sizeHint().height() - self.status.sizeHint().height() - 80
+            card_h = 90  # approximate height of a DepartureCard, including spacing
+            spacing = self.departure_list.spacing()
+            amount = max(1, min(MAX_BUS_AMOUNT, (available + spacing) / (card_h + spacing)))
+            return amount
+   
     def _worker_done(self):
         self.last_update = time.time()
         self.status.setText(
