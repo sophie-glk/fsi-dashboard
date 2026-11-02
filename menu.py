@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtNetwork import (
     QNetworkAccessManager, QNetworkDiskCache, QNetworkRequest, QNetworkReply
 )
+from torch import layout
 
 from stwno import get_menu
 
@@ -50,9 +51,9 @@ class DishCard(QFrame):
         self.setObjectName("dishCard")
         self.setStyleSheet("""
             QFrame#dishCard {
-                background: palette(base);
-                border: 1px solid palette(mid);
-                border-radius: 9px;
+                background: rgba(128, 128, 128, 0.07);
+                border: 1px solid rgba(128, 128, 128, 0.15);
+                border-radius: 5px;
             }
             QLabel {
                 border: none;
@@ -70,19 +71,21 @@ class DishCard(QFrame):
                 color: #18794e;
             }
             QLabel#dishAllergens {
-                font-size: 12px;
+                font-size: 10px;
                 color: palette(placeholder-text);
             }
         """)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setSpacing(2)
         name = QLabel(dish.get("name", "Unbekannt"))
         name.setObjectName("dishName")
         name.setWordWrap(True)
         layout.addWidget(name)
 
         content = QHBoxLayout()
-
+        content.setSpacing(8)
         self.picture = QLabel("🍽")
         self._calculate_image_height()
         # the images have a 3:2 aspect ratio, so scale them correctly
@@ -93,25 +96,27 @@ class DishCard(QFrame):
         content.addWidget(self.picture, 0, Qt.AlignmentFlag.AlignTop)
 
         details = QVBoxLayout()
-        kind_layout = QHBoxLayout()
         if dish.get("type"):
             kind = QLabel(dish["type"])
             kind.setObjectName("dishType")
-            kind_layout.addWidget(kind)
+            details.addWidget(kind)
         # consistent layout
         else:
-            kind_layout.addWidget(QLabel(""))
+            details.addWidget(QLabel(""))
         if dish.get("allergens"):
             allergens_label = QLabel(", ".join(dish["allergens"]))
+            allergens_label.setAlignment(Qt.AlignmentFlag.AlignTop)
             allergens_label.setObjectName("dishAllergens")
-            kind_layout.addWidget(allergens_label)
-        details.addLayout(kind_layout)
+            details.addWidget(allergens_label)
+        else:
+            details.addWidget(QLabel(""))
         price = QLabel(dish.get("price", ""))
         price.setObjectName("dishPrice")
+        price.setAlignment(Qt.AlignmentFlag.AlignTop)
         details.addWidget(price)
-
-        details.addStretch()
-        content.addLayout(details, 1)
+        details.addStretch(1)
+        details.setSpacing(2)
+        content.addLayout(details)
 
         layout.addLayout(content)
         if dish.get("image"):
@@ -128,7 +133,7 @@ class DishCard(QFrame):
     def _calculate_image_height(self):
         self.img_height = 64
         if self.dish_count != 0:
-            self.img_height = int((self.window().height() / self.dish_count * 0.75))
+            self.img_height = int((self.window().height() / self.dish_count * 0.8 ))
         self.picture.setFixedSize(int(self.img_height * 3 / 2), self.img_height)
 
     def rescale_image(self):
@@ -193,8 +198,8 @@ class MenuPanel(QWidget):
         )
         self.menu_grid = QGridLayout(self.menu_content)
         self.menu_grid.setContentsMargins(0, 0, 0, 0)
-        self.menu_grid.setHorizontalSpacing(7)
-        self.menu_grid.setVerticalSpacing(6)
+        self.menu_grid.setHorizontalSpacing(6)
+        self.menu_grid.setVerticalSpacing(3)
         self.menu_grid.setColumnStretch(0, 1)
         self.menu_grid.setColumnStretch(1, 1)
         right.addWidget(self.menu_content, 1)
@@ -311,6 +316,7 @@ class MenuPanel(QWidget):
                 "font-size: 25px; font-weight: 700; padding-top: 3px;"
             )
             self.menu_grid.addWidget(heading, row, 0, 1, 2)
+            self.menu_grid.setRowStretch(row, 2) # increase spacing between sections
             row += 1
 
             for i in range(0, len(dishes), 2):
@@ -319,7 +325,7 @@ class MenuPanel(QWidget):
                         DishCard(dish, self.image_network, count), row, col
                     )
                 row += 1
-
+        self.menu_grid.setRowStretch(row, 1)  # push everything up
         self.menu_status.setText(
             f"{count} Gerichte · "
             f"Aktualisiert {datetime.now(TIMEZONE):%H:%M:%S}"

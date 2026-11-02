@@ -40,8 +40,8 @@ class DepartureCard(QFrame):
 
         self.setStyleSheet("""
             QFrame#departureCard {
-                background: palette(base);
-                border: 1px solid palette(mid);
+                background: rgba(128, 128, 128, 0.07);
+                border: 1px solid rgba(128, 128, 128, 0.15);
                 border-radius: 9px;
             }
             QLabel {
@@ -50,7 +50,6 @@ class DepartureCard(QFrame):
             QLabel#time {
                 font-size: 24px;
                 font-weight: 700;
-                font-feature-settings: "tnum"; 
                                     }
             QLabel#line {
                 background: #dceafe;
@@ -59,7 +58,6 @@ class DepartureCard(QFrame):
                 padding: 4px 8px;
                 font-size: 20px;
                 font-weight: 700;
-                font-feature-settings: "tnum";
                 
             }
             QLabel#destination {
@@ -138,8 +136,7 @@ class BusPanel(QWidget):
         self.last_update = 0
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-
+        
         self.bus_heading = QLabel("Busse")
         self.bus_heading.setStyleSheet("font-size: 26px; font-weight: 700;")
         font = self.bus_heading.font()
